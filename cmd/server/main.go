@@ -41,14 +41,18 @@ func main() {
 	fmt.Printf("Started listening on: %v:%v\n", sock_in.Addr, sock_in.Port)
 
 	for {
-		nfd, _, err := syscall.Accept(fd)
+		connfd, _, err := syscall.Accept(fd)
 		if err != nil {
 			continue
 		}
 
-		redis.DoSomething(nfd)
+		for {
+			if err := redis.DoSomething(connfd); err != nil {
+				break
+			}
+		}
 
-		if err := syscall.Close(nfd); err != nil {
+		if err := syscall.Close(connfd); err != nil {
 			fmt.Fprintf(os.Stderr, "error closing connection: %v\n", err)
 		}
 	}
