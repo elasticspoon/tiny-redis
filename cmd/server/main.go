@@ -47,7 +47,7 @@ func main() {
 		}
 
 		for {
-			if err := redis.DoSomething(connfd); err != nil {
+			if err := redis.OneRequest(connfd); err != nil {
 				break
 			}
 		}

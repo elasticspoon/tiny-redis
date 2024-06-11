@@ -7,8 +7,6 @@ import (
 	"syscall"
 )
 
-var ErrUnexpectedEOR = errors.New("unexpected end of file")
-
 func DoSomething(fd int) error {
 	buf := make([]byte, 64)
 	if l, err := syscall.Read(fd, buf); err != nil || l < 1 {
@@ -26,18 +24,54 @@ func DoSomething(fd int) error {
 	return nil
 }
 
-func readFull(fd int, bytes int) error {
-	buf := make([]byte, bytes)
-	for bytes > 0 {
-		n, err := syscall.Read(fd, buf)
+const MAX_MESSAGE = 4096
+
+func OneRequest(fd int) error {
+	buf := make([]byte, 4+MAX_MESSAGE+1) // header size = 4
+
+	if err := readFull(fd, &buf, 4); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var ErrUnexpectedEOR = errors.New("unexpected end of file")
+
+func readFull(fd int, buf *[]byte, exp_bytes int) error {
+	for exp_bytes > 0 {
+		bytes_read, err := syscall.Read(fd, *buf)
 		switch {
-		case n <= 0:
+		case bytes_read <= 0:
 			return ErrUnexpectedEOR
 		case err != nil:
 			return err
 		}
 
-		bytes -= n
+		assert(bytes_read <= exp_bytes)
+		exp_bytes -= bytes_read
 	}
 	return nil
+}
+
+func writeAll(fd int, buf *[]byte, exp_bytes int) error {
+	for exp_bytes > 0 {
+		bytes_write, err := syscall.Write(fd, *buf)
+		switch {
+		case bytes_write <= 0:
+			return ErrUnexpectedEOR
+		case err != nil:
+			return err
+		}
+
+		assert(bytes_write <= exp_bytes)
+		exp_bytes -= bytes_write
+	}
+	return nil
+}
+
+func assert(v bool) {
+	if !v {
+		panic("failure")
+	}
 }
