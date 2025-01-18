@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -33,11 +34,27 @@ func OneRequest(fd int) error {
 		return err
 	}
 
+	len := binary.LittleEndian.Uint32(buf[:4])
+	if len > MAX_MESSAGE {
+		return errors.New("message too long")
+	}
+
+	headlessArr := buf[4:]
+	if err := readFull(fd, &headlessArr, int(len)); err != nil {
+		return err
+	}
+
+	// NOTE: should we be appending a null '\0' bytes at
+	// the end of this array or not?
+	fmt.Printf("client says: %s", headlessArr)
+
 	return nil
 }
 
 var ErrUnexpectedEOR = errors.New("unexpected end of file")
 
+// readFull takes in a socket num, a pointer to a buffer and an expected number of bytes
+// it keeps reading in from the socket to the buffer until exp_bytes are read
 func readFull(fd int, buf *[]byte, exp_bytes int) error {
 	for exp_bytes > 0 {
 		bytes_read, err := syscall.Read(fd, *buf)
@@ -54,6 +71,8 @@ func readFull(fd int, buf *[]byte, exp_bytes int) error {
 	return nil
 }
 
+// writeAll takes in a socket num, a pointer to a buffer and an expected number of bytes
+// it keeps writing from the buffer to the socket until exp_bytes are read
 func writeAll(fd int, buf *[]byte, exp_bytes int) error {
 	for exp_bytes > 0 {
 		bytes_write, err := syscall.Write(fd, *buf)
